@@ -320,12 +320,14 @@ import { signInWithRedirect } from "https://www.gstatic.com/firebasejs/10.12.0/f
 const firebaseConfig = {
   apiKey: "AIzaSyAaxO0tXasONwGEDa9kUj0vx6jM-hzKqZM",
   authDomain: "weight-tracker-8fd17.firebaseapp.com",
+  databaseURL: "https://weight-tracker-8fd17-default-rtdb.asia-southeast1.firebasedatabase.app",
   projectId: "weight-tracker-8fd17",
   storageBucket: "weight-tracker-8fd17.firebasestorage.app",
   messagingSenderId: "728171636105",
-  appId: "1:728171636105:web:dc6f40192e93fc9c396d58"
+  appId: "1:728171636105:web:dc6f40192e93fc9c396d58",
+  measurementId: "G-LL51ZCG41R"
 };
-
+  
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
