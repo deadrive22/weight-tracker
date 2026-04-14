@@ -335,16 +335,11 @@ const provider = new GoogleAuthProvider();
 let currentUser = null;
 
  async function loginGoogle() {
-  await signInWithRedirect(auth, provider);
-    currentUser = result.user;
-
-    document.getElementById("userInfo").innerText =
-      "Login sebagai: " + currentUser.email;
-
-    startRealtimeSync(); // mulai sync setelah login
-
+  try {
+    await signInWithRedirect(auth, provider);
   } catch (err) {
-    console.error(err);
+    console.error("LOGIN ERROR:", err);
+    alert(err.message);
   }
 }
 
