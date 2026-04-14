@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Weight Tracker Pro</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+body {
+  font-family: Arial, sans-serif;
+  margin: 0;
+  background: #121212;
+  color: white;
+}
+
+.container {
+  max-width: 500px;
+  margin: auto;
+  padding: 15px;
+}
+
+h2 { text-align: center; }
+
+.card {
+  background: #1e1e1e;
+  padding: 15px;
+  border-radius: 12px;
+  margin-top: 12px;
+}
+
+input, select, button {
+  width: 93.2%;
+  padding: 12px;
+  margin-top: 8px;
+  border-radius: 10px;
+  border: none;
+  font-size: 16px;
+background: #404040;
+color: white; 
+}
+
+input {
+font-size: 14px;
+font-family: monospace;
+}
+
+button {
+  display: block;
+  width: auto;
+  margin: 20px auto 10px auto; /* ini kuncinya */
+  padding: 10px 20px;
+  background: #5fb962;
+  color: white;
+}
+
+select { 
+width: 99.5%;
+background: #404040; 
+color: white; 
+font-size: 14px;
+}
+
+.delete-btn {
+  width: auto;
+  padding: 6px 10px;
+  background: transparent;
+  color: #F44336;
+  border: 1px solid #F44336;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.delete-btn:active {
+  background: #F44336;
+  color: white;
+}
+
+.history-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 8px;
+  padding: 10px 12px;
+  background: #2a2a2a;
+  border-radius: 10px;
+font-family: monospace;
+  gap: 10px;
+}
+
+.delete-btn {
+  margin-left: 10px;
+}
+
+.history-item span {
+  flex: 1;
+}
+
+.history-item small {
+  opacity: 0.7;
+font-size: 12px;
+}
+
+.history-item .bmi-text {
+  opacity: 0.3;
+  font-size: 9px;
+}
+
+.history-item strong {
+  font-size: 17px;
+}
+
+
+.latest-weight {
+  text-align: center;
+  font-size: 50px;
+  font-weight: bold;
+  margin-top: 20px;
+  margin-bottom: 10px;
+  color: white;
+  letter-spacing: 1px;
+text-shadow: 0 0 8px rgba(76,175,80,0.5);
+animation: pop 0.3s ease;
+}
+
+@keyframes pop {
+  0% { transform: scale(0.8); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.weight-diff {
+  text-align: center;
+  font-size: 12.5px;
+  margin-bottom: 7px;
+  transition: color 0.3s ease;
+}
+
+.weight-up {
+  color: #ef7676; /* merah */
+}
+
+.weight-down {
+  color: #7ecc66; /* hijau */
+}
+
+.card-stats {
+background: #1e1e1e;
+  padding: 15px;
+  border-radius: 12px;
+  margin-top: 12px;
+font-family: monospace;
+font-size: 14px;
+}
+
+.bmi-bar {
+  height: 15px;
+  border-radius: 10px;
+  margin-top: 10px;
+  background: linear-gradient(to right, #2196F3, #4CAF50, #F44336);
+  position: relative;
+}
+
+.bmi-indicator {
+  position: absolute;
+  top: -2px;
+  width: 7px;
+  height: 15px;
+  background: transparent;
+border: 2px solid white;
+  border-radius: 3px;
+box-shadow: 0 0 8px rgba(76,175,80,0.5);
+}
+
+#bmi {
+  margin-top: 20px;
+  font-size: 12px;
+  color: #ccc;
+  text-align: center;
+font-family: monospace;
+  min-height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.toast {
+  position: fixed;
+  bottom: 20px;
+  width: 80%;
+  left: 50%;
+  transform: translateX(-50%);
+  
+  background: #e6e6e6;
+  color: #2a2a2a;
+  
+  padding: 12px 16px;
+  border-radius: 10px;
+
+  display: none;
+  align-items: center;
+  justify-content: space-between; /* penting */
+
+  animation: fadeIn 0.3s ease;
+}
+
+.toast span {
+  flex: 1;
+}
+
+.toast button {
+width: auto;
+  background: none;
+  border: none;
+  color: #4CAF50;
+  font-weight: bold;
+padding: 4px 8px;
+  border-radius: 6px;
+}
+
+.toast button:active {
+  background: rgba(76,175,80,0.1);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translate(-50%, 20px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+canvas { height: 250px !important; }
+</style>
+</head>
+
+<body>
+<div class="container">
+
+<h2>📊 Weight Tracker</h2>
+
+<div class="card">
+
+  <!-- HASIL -->
+  <div id="latestWeight" class="latest-weight"></div>
+  <div id="targetDiff" class="weight-diff"></div>
+  <div id="weightDiff" class="weight-diff"></div>
+
+  <p id="bmi"></p>
+
+  <div class="bmi-bar">
+    <div id="bmiIndicator" class="bmi-indicator"></div>
+  </div>
+
+  <!-- TOMBOL -->
+  <button onclick="saveData()">Simpan</button>
+
+  <!-- INPUT -->
+  <input type="number" id="weight" placeholder="Berat (kg)">
+  <input type="number" id="height" placeholder="Tinggi (cm)">
+  <input type="number" id="targetWeight" placeholder="Target (kg)">
+  <input type="date" id="date">
+
+</div>
+
+<div class="card">
+  <select id="filter" onchange="renderAll()">
+    <option value="day">Day</option>
+    <option value="week" selected>Week</option>
+    <option value="month">Month</option>
+    <option value="all">All</option>
+    <option value="custom">Custom</option>
+  </select>
+
+  <div id="customRange" style="display:none;">
+    <input type="date" id="startDate">
+    <input type="date" id="endDate">
+  </div>
+</div>
+
+<div class="card">
+  <canvas id="chart"></canvas>
+</div>
+
+<div class="card-stats">
+  <h3>Statistik</h3>
+  <p>Average: <span id="avg"></span> kg</p>
+  <p>Min: <span id="min"></span> kg</p>
+  <p>Max: <span id="max"></span> kg</p>
+</div>
+
+<div class="card">
+  <h3>📜 History</h3>
+  <select id="historySort" onchange="renderHistory()">
+    <option value="newest">Terbaru</option>
+    <option value="oldest">Terlama</option>
+    <option value="max">Terberat</option>
+    <option value="min">Teringan</option>
+  </select>
+  <div id="historyList"></div>
+</div>
+
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+let chart;
+
+const weightEl = document.getElementById("weight");
+const heightEl = document.getElementById("height");
+const dateEl = document.getElementById("date");
+const bmiEl = document.getElementById("bmi");
+const bmiIndicator = document.getElementById("bmiIndicator");
+const chartEl = document.getElementById("chart");
+const filterEl = document.getElementById("filter");
+const customRange = document.getElementById("customRange");
+const startDate = document.getElementById("startDate");
+const endDate = document.getElementById("endDate");
+const avgEl = document.getElementById("avg");
+const minEl = document.getElementById("min");
+const maxEl = document.getElementById("max");
+
+const today = new Date().toLocaleDateString('en-CA');
+dateEl.value = today;
+
+const savedHeight = localStorage.getItem("height");
+if (savedHeight) heightEl.value = savedHeight;
+
+const targetEl = document.getElementById("targetWeight");
+
+const savedTarget = localStorage.getItem("targetWeight");
+if (savedTarget) targetEl.value = savedTarget;
+
+function showLatestWeight() {
+  let raw = JSON.parse(localStorage.getItem("weights")) || {};
+  let list = getAllEntries(raw);
+
+  if (!list.length) return;
+
+  // urutkan dari terbaru
+  list.sort((a,b)=> b.time - a.time);
+
+  const latest = list[0];
+  const previous = list[1];
+
+  // tampilkan weight terbaru
+  document.getElementById("latestWeight").innerText = latest.weight.toFixed(2) + " kg";
+
+  // hitung selisih
+updateTargetDiff(latest.weight);
+  updateWeightDiff(latest, previous);
+}
+
+function getTargetColor(diff) {
+  let abs = Math.abs(diff);
+
+if (abs === 0) return "#7ecc66";       // hijau
+if (abs <= 1) return "#aae368";        // hijau
+if (abs <= 2) return "#c8e269";        // hijau
+if (abs <= 3) return "#f7e06e";        // kuning
+if (abs <= 4) return "#7CFC00";        // kuning
+if (abs <= 5) return "#facf6b";        // orange
+if (abs <= 6) return "#f6bb6f";        // orange
+if (abs <= 7) return "#ef925d";        // merah
+return "#ef7676";                      // merah
+}
+
+function updateTargetDiff(weight) {
+  const el = document.getElementById("targetDiff");
+  const target = parseFloat(localStorage.getItem("targetWeight"));
+
+  if (!target) {
+    el.innerText = "";
+    return;
+  }
+
+  let diff = weight - target;
+  let abs = Math.abs(diff).toFixed(2);
+
+  let color = getTargetColor(diff);
+
+if (diff === 0) {
+  el.innerText = "🎯 Target tercapai!";
+} else if (diff < 0) {
+  el.innerText = `${abs} kg menuju target`;
+} else {
+  el.innerText = `${abs} kg di atas target`;
+}
+
+// pakai warna dinamis
+el.style.color = color;
+el.className = "weight-diff";
+  
+}
+
+
+function updateWeightDiff(latest, previous) {
+  const diffEl = document.getElementById("weightDiff");
+  const target = parseFloat(localStorage.getItem("targetWeight"));
+
+  if (!previous) {
+    diffEl.innerText = "";
+    return;
+  }
+
+  let diff = latest.weight - previous.weight;
+  let sign = diff > 0 ? "+" : "";
+
+  diffEl.innerText = `${sign}${diff.toFixed(2)} kg dari sebelumnya`;
+
+  // reset class
+  diffEl.className = "weight-diff";
+
+  if (!target) return;
+
+  // 🔥 LOGIC CERDAS BERDASARKAN TARGET
+  const tolerance = 0.9; // 1 kg toleransi
+
+if (latest.weight < target + tolerance){
+    diffEl.classList.add(diff > 0 ? "weight-down" : "weight-up");
+    // naik = bagus (hijau)
+    // turun = buruk (merah)
+  } else {
+    // sudah lewat target
+    diffEl.classList.add(diff > 0 ? "weight-up" : "weight-down");
+    // naik = buruk (merah)
+    // turun = bagus (hijau)
+  }
+}
+
+function initBMI() {
+  bmiEl.innerText = "BMI: _____________";
+}
+
+function saveData() {
+  let weight = parseFloat(weightEl.value);
+  let height = parseFloat(heightEl.value) / 100;
+  let date = dateEl.value;
+
+  if (!weight || !height || !date) return;
+
+  localStorage.setItem("height", heightEl.value);
+if (targetEl.value) {
+  localStorage.setItem("targetWeight", targetEl.value);
+}
+
+  let bmi = weight / (height * height);
+let status = getBMIStatus(bmi);
+
+// tampilkan weight terbaru
+document.getElementById("latestWeight").innerText = weight.toFixed(2) + " kg";
+
+bmiEl.innerText = bmi ? `BMI: ${bmi.toFixed(2)} (${status})` : " ";
+
+updateBMIBar(bmi);
+
+  let data = JSON.parse(localStorage.getItem("weights")) || {};
+
+  if (!data[date]) data[date] = [];
+  data[date].push({
+  value: weight,
+  time: Date.now()
+});
+
+  localStorage.setItem("weights", JSON.stringify(data));
+
+  weightEl.value = "";
+showLatestWeight();
+  renderAll();
+}
+
+
+function getBMIStatus(bmi) {
+  if (bmi < 18.5) return "Underweight";
+  if (bmi < 25) return "Normal";
+  return "Overweight";
+}
+
+function updateBMIBar(bmi) {
+  let min = 15;
+  let max = 35;
+  let percent = ((bmi - min) / (max - min)) * 100;
+  percent = Math.max(0, Math.min(100, percent));
+  bmiIndicator.style.left = percent + "%";
+}
+
+function formatTime(timestamp) {
+  const d = new Date(timestamp);
+
+  const jam = d.getHours().toString().padStart(2, '0');
+  const menit = d.getMinutes().toString().padStart(2, '0');
+
+  return `${jam}:${menit}`;
+}
+
+function calculateBMI(weight, heightCm) {
+  if (!heightCm) return null;
+
+  let h = heightCm / 100;
+  let bmi = weight / (h * h);
+
+  return {
+    value: bmi.toFixed(1),
+    status: getBMIStatus(bmi)
+  };
+}
+
+function getDailyAverage(data) {
+  let result = [];
+
+  for (let date in data) {
+    let arr = data[date];
+
+    let avg = arr.reduce((sum, item) => sum + item.value, 0) / arr.length;
+
+    result.push({ date, value: avg });
+  }
+
+  return result.sort((a,b)=> new Date(a.date)-new Date(b.date));
+}
+
+function getHourlyData(raw) {
+  let result = [];
+
+  for (let date in raw) {
+    raw[date].forEach(item => {
+      let d = new Date(item.time);
+
+      let jam = d.getHours().toString().padStart(2, '0');
+      let menit = d.getMinutes().toString().padStart(2, '0');
+
+      result.push({
+        date: `${jam}:${menit}`,
+        value: item.value,
+        time: item.time
+      });
+    });
+  }
+
+  return result.sort((a,b)=> a.time - b.time);
+}
+
+function filterData(data) {
+  let filter = filterEl.value;
+  let now = new Date();
+
+  if (filter === "custom") {
+    customRange.style.display = "block";
+    let start = new Date(startDate.value);
+    let end = new Date(endDate.value);
+    return data.filter(d => new Date(d.date) >= start && new Date(d.date) <= end);
+  } else {
+    customRange.style.display = "none";
+  }
+
+  return data.filter(d => {
+    let date = new Date(d.date + "T00:00:00");
+    if (filter === "day") return date.toDateString() === now.toDateString();
+    if (filter === "week") return (now - date)/(1000*60*60*24) <= 7;
+    if (filter === "month") return date.getMonth() === now.getMonth();
+    return true;
+  });
+}
+
+function updateStats(data) {
+  if (!data.length) {
+    avgEl.innerText = "-";
+    minEl.innerText = "-";
+    maxEl.innerText = "-";
+    return;
+  }
+
+  let values = data.map(d => Number(d.value) || 0);
+  avgEl.innerText = (values.reduce((a,b)=>a+b,0)/values.length).toFixed(2);
+  minEl.innerText = Math.min(...values).toFixed(2);
+  maxEl.innerText = Math.max(...values).toFixed(2);
+}
+
+function renderChart(data) {
+  if (chart) chart.destroy();
+
+  chart = new Chart(chartEl, {
+    type: 'line',
+    data: {
+      labels: data.map(d => d.date),
+      datasets: [{
+        label: 'Weight Trend',
+        data: data.map(d => d.value),
+        tension: 0.3
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false
+    }
+  });
+}
+
+function renderAll() {
+  let raw = JSON.parse(localStorage.getItem("weights")) || {};
+  let filter = filterEl.value;
+let data;
+
+if (filter === "day") {
+  data = getHourlyData(raw).filter(d => {
+    let now = new Date();
+    let t = new Date(d.time);
+    return t.toDateString() === now.toDateString();
+  });
+} else {
+  let daily = getDailyAverage(raw);
+  data = filterData(daily);
+}
+
+renderChart(data);
+updateStats(data);
+renderHistory();
+
+}
+
+function getAllEntries(raw) {
+  let list = [];
+  for (let date in raw) {
+    raw[date].forEach((w, index) => {
+  list.push({ date, weight: w.value, time: w.time, index });
+});
+  }
+  return list;
+}
+
+let lastDeleted = null;
+
+function deleteEntry(date, index) {
+  let data = JSON.parse(localStorage.getItem("weights")) || {};
+
+  // simpan dulu untuk undo
+  lastDeleted = {
+  date,
+  value: data[date][index].value,
+  time: data[date][index].time
+};
+
+  data[date].splice(index, 1);
+
+  if (data[date].length === 0) delete data[date];
+
+  localStorage.setItem("weights", JSON.stringify(data));
+
+  showToast();
+
+  renderAll();
+}
+
+function showToast() {
+  const toast = document.getElementById("toast");
+
+  toast.innerHTML = `
+    <span>Data dihapus</span>
+    <button onclick="undoDelete()">Undo</button>
+  `;
+
+  // tampilkan toast
+  toast.style.display = "flex";
+toast.style.opacity = "1";
+
+  setTimeout(() => {
+    toast.style.display = "none";
+    lastDeleted = null;
+  }, 4000);
+}
+
+
+
+function undoDelete() {
+  if (!lastDeleted) return;
+
+  let data = JSON.parse(localStorage.getItem("weights")) || {};
+
+  if (!data[lastDeleted.date]) data[lastDeleted.date] = [];
+
+  data[lastDeleted.date].push({
+  value: lastDeleted.value,
+  time: lastDeleted.time
+});
+
+  localStorage.setItem("weights", JSON.stringify(data));
+
+  lastDeleted = null;
+
+  document.getElementById("toast").style.display = "none";
+
+  renderAll();
+}
+
+function formatDate(dateStr) {
+  const date = new Date(dateStr);
+
+  const hari = ["Min","Sen","Sel","Rab","Kam","Jum","Sab"];
+  const namaHari = hari[date.getDay()];
+
+  return `${namaHari}, ${dateStr}`;
+}
+
+function sortByDateTime(a, b, asc = true) {
+  let dateA = new Date(a.date);
+  let dateB = new Date(b.date);
+
+  if (dateA.getTime() === dateB.getTime()) {
+    return asc ? a.time - b.time : b.time - a.time;
+  }
+
+  return asc ? dateA - dateB : dateB - dateA;
+}
+
+function renderHistory() {
+  let raw = JSON.parse(localStorage.getItem("weights")) || {};
+  let list = getAllEntries(raw);
+
+  let sort = document.getElementById("historySort").value;
+
+  if (sort === "newest") list.sort((a,b)=> sortByDateTime(a,b,false));
+  if (sort === "oldest") list.sort((a,b)=> sortByDateTime(a,b,true));
+  if (sort === "max") list.sort((a,b)=> b.weight - a.weight);
+  if (sort === "min") list.sort((a,b)=> a.weight - b.weight);
+
+  let html = "";
+
+  // ambil tinggi sekali saja (lebih efisien)
+  let height = parseFloat(localStorage.getItem("height"));
+
+  list.forEach(item => {
+    let bmi = calculateBMI(item.weight, height);
+
+    html += `
+      <div class="history-item">
+        <span>
+          <small>${formatDate(item.date)} • ${formatTime(item.time)}</small>
+<br><br>
+          <strong>${item.weight.toFixed(2)} kg   </strong>
+          ${bmi ? `<span class="bmi-text"> (${bmi.value} - ${bmi.status})</span>` : ""}
+
+</span>
+        <button class="delete-btn" onclick="deleteEntry('${item.date}', ${item.index})">⌫</button>
+      </div>
+    `;
+  });
+
+  document.getElementById("historyList").innerHTML = html || "<p>Tidak ada data</p>";
+}
+
+initBMI();
+renderAll();
+showLatestWeight();
+</script>
+
+</body>
+</html>
