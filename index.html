@@ -336,12 +336,13 @@ const provider = new GoogleAuthProvider();
 
 let currentUser = null;
 
- async function loginGoogle() {
+ 
+  async function loginGoogle() {
   try {
+    alert("Tombol diklik"); // TEST
     await signInWithRedirect(auth, provider);
   } catch (err) {
-    console.error("LOGIN ERROR:", err);
-    alert(err.message);
+    alert("ERROR: " + err.message);
   }
 }
 
