@@ -260,6 +260,11 @@ canvas { height: 250px !important; }
 </div>
 
 <div class="card">
+<button onclick="loginGoogle()">Login Google</button>
+<p id="userInfo" style="text-align:center;font-size:12px;"></p>
+</div>
+
+<div class="card">
   <select id="filter" onchange="renderAll()">
     <option value="day">Day</option>
     <option value="week" selected>Week</option>
@@ -300,7 +305,59 @@ canvas { height: 250px !important; }
 
 <div id="toast" class="toast"></div>
 
-<script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getFirestore, collection, addDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { 
+  getAuth, 
+  GoogleAuthProvider, 
+  signInWithPopup, 
+  onAuthStateChanged 
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAaxO0tXasONwGEDa9kUj0vx6jM-hzKqZM",
+  authDomain: "weight-tracker-8fd17.firebaseapp.com",
+  projectId: "weight-tracker-8fd17",
+  storageBucket: "weight-tracker-8fd17.firebasestorage.app",
+  messagingSenderId: "728171636105",
+  appId: "1:728171636105:web:dc6f40192e93fc9c396d58"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+const auth = getAuth(app);
+const provider = new GoogleAuthProvider();
+
+let currentUser = null;
+
+async function loginGoogle() {
+  try {
+    const result = await signInWithPopup(auth, provider);
+    currentUser = result.user;
+
+    document.getElementById("userInfo").innerText =
+      "Login sebagai: " + currentUser.email;
+
+    startRealtimeSync(); // mulai sync setelah login
+
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+onAuthStateChanged(auth, (user) => {
+  if (user) {
+    currentUser = user;
+
+    document.getElementById("userInfo").innerText =
+      "Login sebagai: " + user.email;
+
+    startRealtimeSync();
+  }
+});
+
 let chart;
 
 const weightEl = document.getElementById("weight");
@@ -327,6 +384,55 @@ const targetEl = document.getElementById("targetWeight");
 
 const savedTarget = localStorage.getItem("targetWeight");
 if (savedTarget) targetEl.value = savedTarget;
+
+function startRealtimeSync() {
+  if (!currentUser) return;
+
+  onSnapshot(
+    collection(db, "users", currentUser.uid, "weights"),
+    (snapshot) => {
+
+    let firebaseData = {};
+
+    snapshot.forEach(doc => {
+      let d = doc.data();
+
+      if (!firebaseData[d.date]) firebaseData[d.date] = [];
+
+  firebaseData[d.date].push({
+  value: d.weight,
+  time: Number(d.time)
+});
+    });
+
+    // ambil local lama
+    let localData = JSON.parse(localStorage.getItem("weights")) || {};
+
+    // 🔥 MERGE
+    let merged = { ...localData };
+
+    for (let date in firebaseData) {
+      if (!merged[date]) merged[date] = [];
+
+      firebaseData[date].forEach(fbItem => {
+        let exists = merged[date].some(
+          localItem => localItem.time === fbItem.time
+        );
+
+        if (!exists) {
+          merged[date].push(fbItem);
+        }
+      });
+    }
+
+    // simpan hasil merge
+    localStorage.setItem("weights", JSON.stringify(merged));
+
+    // update UI
+    renderAll();
+    showLatestWeight();
+  });
+}
 
 function showLatestWeight() {
   let raw = JSON.parse(localStorage.getItem("weights")) || {};
@@ -429,6 +535,23 @@ function initBMI() {
   bmiEl.innerText = "BMI: _____________";
 }
 
+async function saveToFirebase(weight, date, time) {
+  if (!currentUser) return;
+
+  try {
+    await addDoc(
+      collection(db, "users", currentUser.uid, "weights"),
+      {
+        weight: weight,
+        date: date,
+        time: time
+      }
+    );
+  } catch (e) {
+    console.error("Error:", e);
+  }
+}
+
 function saveData() {
   let weight = parseFloat(weightEl.value);
   let height = parseFloat(heightEl.value) / 100;
@@ -453,14 +576,17 @@ updateBMIBar(bmi);
 
   let data = JSON.parse(localStorage.getItem("weights")) || {};
 
-  if (!data[date]) data[date] = [];
-  data[date].push({
+let now = Date.now();
+
+if (!data[date]) data[date] = [];
+data[date].push({
   value: weight,
-  time: Date.now()
+  time: now
 });
 
-  localStorage.setItem("weights", JSON.stringify(data));
+localStorage.setItem("weights", JSON.stringify(data));
 
+saveToFirebase(weight, date, now);
   weightEl.value = "";
 showLatestWeight();
   renderAll();
@@ -508,7 +634,7 @@ function getDailyAverage(data) {
   for (let date in data) {
     let arr = data[date];
 
-    let avg = arr.reduce((sum, item) => sum + item.value, 0) / arr.length;
+    let avg = arr.reduce((sum, item) => sum + (item.value ?? item.weight), 0) / arr.length;
 
     result.push({ date, value: avg });
   }
@@ -528,7 +654,7 @@ function getHourlyData(raw) {
 
       result.push({
         date: `${jam}:${menit}`,
-        value: item.value,
+        value: item.value ?? item.weight,
         time: item.time
       });
     });
@@ -567,7 +693,7 @@ function updateStats(data) {
     return;
   }
 
-  let values = data.map(d => Number(d.value) || 0);
+  let values = data.map(d => Number(d.value ?? d.weight) || 0);
   avgEl.innerText = (values.reduce((a,b)=>a+b,0)/values.length).toFixed(2);
   minEl.innerText = Math.min(...values).toFixed(2);
   maxEl.innerText = Math.max(...values).toFixed(2);
@@ -578,8 +704,8 @@ function renderChart(data) {
 
   chart = new Chart(chartEl, {
     type: 'line',
-    data: {
-      labels: data.map(d => d.date),
+   
+data: {labels: data.map(d => d.date),
       datasets: [{
         label: 'Weight Trend',
         data: data.map(d => d.value),
@@ -619,7 +745,12 @@ function getAllEntries(raw) {
   let list = [];
   for (let date in raw) {
     raw[date].forEach((w, index) => {
-  list.push({ date, weight: w.value, time: w.time, index });
+  list.push({ 
+  date, 
+  weight: w.value ?? w.weight, 
+  time: w.time, 
+  index 
+});
 });
   }
   return list;
@@ -633,7 +764,7 @@ function deleteEntry(date, index) {
   // simpan dulu untuk undo
   lastDeleted = {
   date,
-  value: data[date][index].value,
+  value: data[date][index].value ?? data[date][index].weight,
   time: data[date][index].time
 };
 
@@ -745,9 +876,14 @@ function renderHistory() {
   document.getElementById("historyList").innerHTML = html || "<p>Tidak ada data</p>";
 }
 
+window.saveData = saveData;
+window.deleteEntry = deleteEntry;
+window.undoDelete = undoDelete;
+
 initBMI();
 renderAll();
 showLatestWeight();
+startRealtimeSync(); // 🔥 WAJIB
 </script>
 
 </body>
