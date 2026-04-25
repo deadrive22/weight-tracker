@@ -668,22 +668,39 @@ function filterData(data) {
 
   if (filter === "custom") {
     customRange.style.display = "block";
+
+    if (!startDate.value || !endDate.value) return [];
+
     let start = new Date(startDate.value);
     let end = new Date(endDate.value);
-    return data.filter(d => new Date(d.date) >= start && new Date(d.date) <= end);
-  } else {
-    customRange.style.display = "none";
+
+    return data.filter(d => {
+      let t = new Date(d.date);
+      return t >= start && t <= end;
+    });
   }
+
+  customRange.style.display = "none";
 
   return data.filter(d => {
     let date = new Date(d.date + "T00:00:00");
-    if (filter === "day") return date.toDateString() === now.toDateString();
-    if (filter === "week") return (now - date)/(1000*60*60*24) <= 7;
-    if (filter === "month") return date.getMonth() === now.getMonth();
-    return true;
+
+    if (filter === "day")
+      return date.toDateString() === now.toDateString();
+
+    if (filter === "week")
+      return (now - date) / (1000 * 60 * 60 * 24) <= 7;
+
+    if (filter === "month")
+      return date.getMonth() === now.getMonth() &&
+             date.getFullYear() === now.getFullYear();
+
+    if (filter === "all")
+      return true;
+
+    return false;
   });
 }
-
 function updateStats(data) {
   if (!data.length) {
     avgEl.innerText = "-";
@@ -734,6 +751,8 @@ if (filter === "day") {
   data = filterData(daily);
 }
 
+console.log("FILTER:", filter, "DATA:", data);
+  
 renderChart(data);
 updateStats(data);
 renderHistory();
